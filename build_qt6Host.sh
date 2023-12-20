@@ -5,12 +5,12 @@
 
 set -exuo pipefail
 
-BUILD_TARGET=/build/qt6_host
+BUILD_TARGET=/opt/qthost-build
 SRC=/src
-QT_BRANCH="6.4.0"
+QT_BRANCH="6.6.1"
 DEBIAN_VERSION=$(lsb_release -cs)
 MAKE_CORES="$(expr $(nproc) + 2)"
-BUILD_TARGET_PI=/build/qt6_rpi
+BUILD_TARGET_PI=/opt/qtpi-build
 
 mkdir -p "$BUILD_TARGET"
 mkdir -p "$BUILD_TARGET_PI"
@@ -30,7 +30,7 @@ function fetch_rpi_firmware () {
         --exclude '*android*' \
         --exclude 'hello_pi' \
         --exclude '.svn' \
-        /src/opt/ /sysroot/opt/
+        /src/opt/ /rpi-sysroot/opt/
 }
 
 
@@ -54,9 +54,14 @@ function fetch_qt6 () {
     if [ ! -d "$SRC_DIR" ]; then
         mkdir -p "$SRC_DIR"
 
-        wget -q --progress=bar:force:noscroll --show-progress https://download.qt.io/official_releases/qt/6.4/6.4.0/single/qt-everywhere-src-6.4.0.tar.xz
-        pv qt-everywhere-src-6.4.0.tar.xz | tar xpJ -C "$SRC_DIR" --strip-components=1
-        rm qt-everywhere-src-6.4.0.tar.xz
+        wget -q --progress=bar:force:noscroll --show-progress https://download.qt.io/official_releases/qt/6.6/6.6.1/single/qt-everywhere-src-6.6.1.tar.xz
+        pv qt-everywhere-src-6.6.1.tar.xz | tar xpJ -C "$SRC_DIR" --strip-components=1
+        rm qt-everywhere-src-6.6.1.tar.xz
+        # OR using git
+        # git clone "https://codereview.qt-project.org/qt/qt5" qt6
+        # cd qt6
+        # git switch 6.7
+        # perl init-repository -f
     else
         echo "DO NOTHING"
     fi
@@ -68,22 +73,19 @@ function build_qt () {
     pushd "$BUILD_TARGET"
     local SRC_DIR="/src/qt6"
 
-    cmake "$SRC_DIR" -GNinja \
-        -DCMAKE_BUILD_TYPE=Release \
-        -DQT_BUILD_EXAMPLES=OFF \
-        -DINPUT_opengl=es2 \
-        -DQT_BUILD_TESTS=OFF \
-        -DBUILD_qtdoc=OFF \
-        -DBUILD_qttranslations=OFF \
-        -DBUILD_qttools=OFF \
-        -DBUILD_qtwebchannel=OFF \
-        -DBUILD_qtwebengine=OFF \
-        -DBUILD_qtwebview=OFF \
-        -DBUILD_qtsensors=OFF \
-        -DBUILD_qtvirtualkeyboard=OFF \
-        -DBUILD_qtwebchannel=OFF \
-        -DBUILD_qtspeech=OFF \
-        -DCMAKE_INSTALL_PREFIX=/opt/qt6
+#    cmake "$SRC_DIR" -GNinja \
+#        -DCMAKE_BUILD_TYPE=Release \
+#        -DQT_BUILD_EXAMPLES=OFF \
+#        -DQT_BUILD_TESTS=OFF \
+#        -DCMAKE_INSTALL_PREFIX=/opt/qt-host
+    "$SRC_DIR"/configure \
+        -confirm-license \
+        -release \
+        -nomake tests \
+        -nomake examples \
+        -prefix /opt/qt-host \
+        -skip qtopcua
+        
 
     /usr/games/cowsay -f tux "Making QT version $QT_BRANCH."
 
@@ -95,13 +97,12 @@ function build_qt () {
 }
 
 fetch_rpi_firmware
-fetch_cross_compile_tool
+#fetch_cross_compile_tool
 
 # Modify paths for build process
 wget -q https://raw.githubusercontent.com/riscv/riscv-poky/master/scripts/sysroot-relativelinks.py -O /usr/local/bin/sysroot-relativelinks.py
 chmod +x /usr/local/bin/sysroot-relativelinks.py
-/usr/bin/python3 /usr/local/bin/sysroot-relativelinks.py /sysroot
+/usr/bin/python3 /usr/local/bin/sysroot-relativelinks.py /rpi-sysroot
 
 fetch_qt6
 build_qt
-

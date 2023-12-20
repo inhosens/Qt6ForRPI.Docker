@@ -1,6 +1,6 @@
-FROM host
+FROM qthost
 
-WORKDIR /build
+WORKDIR /opt/qtpi-build
 
 COPY build_qt6Rpi.sh /usr/local/bin/
 RUN chmod +x /usr/local/bin/build_qt6Rpi.sh
